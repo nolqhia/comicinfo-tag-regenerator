@@ -8,7 +8,7 @@ Kavita 蔵書のジャンルタグを、**接続性の高い要素タグ**へ作
 > タグクラウドを回遊して「この二作が繋がるのか」という発見が起きる状態を作る。
 
 設計と、その過程で一番面白かったこと（**機械は正規化できるが「何を残すべきか」は判断できない**）については、
-エッセイ [**タグは分類ではなく接続である**](https://florilegium.mof.li/comicinfo-tag-regeneration) に書いた。
+エッセイ [**自炊蔵書のジャンルタグを、ローカルLLMで作り直す**](https://florilegium.mof.li/comicinfo-tag-regeneration) に書いた。
 
 ## 仕組み
 

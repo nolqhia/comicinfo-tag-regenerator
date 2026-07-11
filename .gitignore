@@ -1,0 +1,26 @@
+# --- personal library data (full title manifest / per-title outputs) ---
+out/
+docs/inventory.json
+all_keys.txt
+
+# --- separate tool with its own repo (github.com/nolqhia/comicinfo-gen);
+#     the local copy holds a private Rakuten API key, so never commit it ---
+comicinfo-gen/
+
+# --- large / copyrighted artifacts (test .cbz etc.) ---
+*.cbz
+
+# --- runtime / staging ---
+__pycache__/
+*.pyc
+wb-staging/
+*.journal
+*.log
+_tmp_*.json
+
+# --- editor / agent ---
+.claude/
+.obsidian/
+
+# essay lives on florilegium, edited there — keep out of the repo
+タグは分類ではなく接続である.md

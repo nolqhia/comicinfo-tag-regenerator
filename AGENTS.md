@@ -19,14 +19,29 @@
 
 ## 手順
 
-### 0. 準備（毎回）
+### 0. 準備
 
+必要なもの（初回のみ）:
+```bash
+pip install requests trafilatura     # Python 3.x
+```
+
+毎回:
 ```bash
 # 楽天APIキーを環境に借りる。新刊ラノベはこれが無いとあらすじを取り逃す
 export RAKUTEN_APP_ID=$(grep -oP 'RAKUTEN_APP_ID\s*=\s*"\K[^"]+' comicinfo-gen/comicinfo_gen.py)
 export RAKUTEN_ACCESS_KEY=$(grep -oP 'RAKUTEN_ACCESS_KEY\s*=\s*"\K[^"]+' comicinfo-gen/comicinfo_gen.py)
 ```
-`comicinfo-gen/` はローカルにのみ存在する別ツール（gitignore 済み）。無ければ OpenBD だけで進む。
+
+**リポジトリに含まれない依存**（gitignore 済み。作者の実機にのみ存在し、clone 先では欠ける）:
+
+| もの | 無いとどうなるか |
+|---|---|
+| `comicinfo-gen/`（楽天キー） | あらすじが OpenBD/NDL のみに。新刊ラノベを取り逃しやすい |
+| `out/mapping.json`（全300作の確定タグ） | 「現地の真実」照会と `update_ledger.py` の昇格判定が台帳のみに劣化。動作はする |
+| SearXNG（宅内ホスト） | レビュー0件で完走してしまう。あらすじだけで判断することになる |
+
+いずれも**欠けても止まらず品質が落ちるだけ**なので、欠けている場合はその旨をユーザーに伝えてから進む。
 
 ### 1. 書誌とあらすじ
 

@@ -47,11 +47,16 @@ META_BLACKLIST = {
     "アンソロジー", "選集", "受賞作", "連載中", "完結", "解説付き",
     "名作再評価", "古典推理", "書き下ろし", "文庫", "新装版", "既刊",
     "女性向け", "男性向け", "成人向け",   # 客層メタ（レーベル同様、作品要素でない）
+    "ノンフィクション",   # 棚カテゴリ（Non-fictionライブラリで分かる）。内容の性質は「実話」を使う
 }
 
 
 def _load_vocab() -> tuple[set[str], set[str], set[str]]:
-    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "seed_vocab.json")
+    # Prefer the confirmed (living) ledger; fall back to the original seed.
+    base = os.path.dirname(os.path.abspath(__file__))
+    p = os.path.join(base, "seed_vocab.confirmed.json")
+    if not os.path.exists(p):
+        p = os.path.join(base, "seed_vocab.json")
     with open(p, "r", encoding="utf-8") as f:
         d = json.load(f)
     canonical = set(d.get("canonical", []))

@@ -38,6 +38,9 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 LEDGER = os.path.join(HERE, "seed_vocab.confirmed.json")
 MAPPING = os.path.join(os.path.dirname(HERE), "out", "mapping.json")
+# Which books have been applied. Kept OUT of the ledger and under out/ (gitignored):
+# the list is effectively a purchase history, and the ledger itself is published.
+APPLIED = os.path.join(os.path.dirname(HERE), "out", "applied_isbn.json")
 
 
 def load_mapping_counts() -> dict[str, int]:
@@ -51,6 +54,24 @@ def load_mapping_counts() -> dict[str, int]:
         for t in tags:
             counts[t] = counts.get(t, 0) + 1
     return counts
+
+
+def load_applied() -> list[str]:
+    if not os.path.exists(APPLIED):
+        return []
+    try:
+        with open(APPLIED, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return []
+
+
+def save_applied(ids: list[str]) -> None:
+    os.makedirs(os.path.dirname(APPLIED), exist_ok=True)
+    tmp = APPLIED + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(ids, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, APPLIED)
 
 
 def main(argv=None) -> int:
@@ -71,7 +92,12 @@ def main(argv=None) -> int:
         led = json.load(f)
     canon, pend, disc = set(led["canonical"]), set(led["pending"]), set(led["discarded"])
     before = (len(canon), len(pend))
-    applied = led.setdefault("_meta", {}).setdefault("applied_isbn", [])
+    # migrate any list left in an older ledger, then drop it from the published file
+    applied = load_applied() or (led.get("_meta") or {}).get("applied_isbn", [])
+    if "_meta" in led:
+        led["_meta"].pop("applied_isbn", None)
+        if not led["_meta"]:
+            del led["_meta"]
 
     if args.tags and args.isbn and args.isbn in applied:
         print(f"{args.isbn} は適用済み。二重適用すると自分が作った pending を"
@@ -127,6 +153,7 @@ def main(argv=None) -> int:
                 pend.add(t)
         if args.isbn:
             applied.append(args.isbn)
+            save_applied(applied)
 
     led["canonical"], led["pending"], led["discarded"] = sorted(canon), sorted(pend), sorted(disc)
     tmp = LEDGER + ".tmp"

@@ -11,9 +11,9 @@ Step 1 of the single-book workflow (see AGENTS.md). Resolves, in order:
      Last resort for niche imprints (KAエスマ文庫 etc.) that the other two miss.
 
 Usage:
-    python resolve_book.py 9784094533057
-    python resolve_book.py "https://www.amazon.co.jp/.../dp/4824204690/..."
-    python resolve_book.py 9784094533057 --json      # machine-readable
+    python resolve_book.py 9784101010137
+    python resolve_book.py "https://www.amazon.co.jp/.../dp/4101010137/..."
+    python resolve_book.py 9784101010137 --json      # machine-readable
 
 Rakuten key (optional but recommended) — borrow the local comicinfo-gen setting:
     export RAKUTEN_APP_ID=$(grep -oP 'RAKUTEN_APP_ID\\s*=\\s*"\\K[^"]+' comicinfo-gen/comicinfo_gen.py)

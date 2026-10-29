@@ -31,7 +31,7 @@ ComicInfo の `<Genre>` を付け、確定台帳を更新する。フル再生�
   export RAKUTEN_APP_ID=$(grep -oP 'RAKUTEN_APP_ID\s*=\s*"\K[^"]+' comicinfo-gen/comicinfo_gen.py)
   export RAKUTEN_ACCESS_KEY=$(grep -oP 'RAKUTEN_ACCESS_KEY\s*=\s*"\K[^"]+' comicinfo-gen/comicinfo_gen.py)
   python docs/fetch_reviews.py --searxng http://SEARXNG:PORT \
-    --title "タイトル" --author "著者" --isbn 4824204690 \
+    --title "タイトル" --author "著者" --isbn 4101010137 \
     --verbose --json out/_book_reviews.json
   ```
 - 結果の先頭に `[あらすじ]`（公式）、続いて `[検索スニペット]`/本文（レビュー）が入る。あらすじが取れなくても感想だけで進める。

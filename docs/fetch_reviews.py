@@ -144,11 +144,66 @@ def extract(url: str, timeout: float = 12) -> str | None:
     except Exception:
         return None
     if trafilatura is not None:
-        txt = trafilatura.extract(r.text, include_comments=True, favor_recall=True,
+        # Pass raw bytes, not r.text: a page served as "text/html" with no charset
+        # makes requests assume ISO-8859-1 per the HTTP spec, which mojibakes the
+        # many Japanese publisher pages that omit it. trafilatura sniffs bytes itself.
+        txt = trafilatura.extract(r.content, include_comments=True, favor_recall=True,
                                   target_language="ja")
         if txt and len(txt) >= MIN_DOC_CHARS:
-            return txt.strip()[:MAX_DOC_CHARS]
+            # Prepend the page's own <title>. Publisher pages often describe a book
+            # without naming it in the body, and the relevance check needs that name;
+            # it also tells the reader which page a passage came from.
+            head = ""
+            try:
+                meta = trafilatura.extract_metadata(r.content)
+                if meta is not None and getattr(meta, "title", None):
+                    head = f"[page] {meta.title}\n"
+            except Exception:  # noqa: BLE001 — metadata is a bonus, never required
+                pass
+            return (head + txt.strip())[:MAX_DOC_CHARS]
     return None
+
+
+# 紀伊國屋の書誌ページは読書メーターのレビューを転載しており、bookmeter.com 本体の
+# ログイン壁を回避して同じ感想が読める。URL は ISBN から確定で組めるので検索不要。
+KINOKUNIYA = "https://www.kinokuniya.co.jp/f/dsg-01-{}"
+
+
+def fetch_bookmeter_mirror(isbn: str, timeout: float = 20) -> str | None:
+    txt = extract(KINOKUNIYA.format(isbn), timeout=timeout)
+    if txt and "読書メーター" in txt:
+        i = txt.find("読書メーター")
+        body = txt[i:].split("によるものです。", 1)[-1].strip()
+        return body or None
+    return None
+
+
+def title_core(title: str) -> str:
+    """Strip volume markers, subtitles and punctuation to get a matchable stem."""
+    # NB: ー (U+30FC) is a long-vowel mark inside words ("ガール"), never a subtitle
+    # dash — splitting on it truncated cores and weakened matching. Use the real
+    # dashes plus a space, which is how JP titles separate a subtitle.
+    t = re.split(r"[—―─~〜:：（(\[【\s　]", title, 1)[0]
+    return re.sub(r"[\s　!?！？・。、,.\d０-９]+", "", t)
+
+
+def looks_relevant(text: str, title: str, author: str, *, floor: float = 0.5) -> bool:
+    """Reject sources that are about some other work (spin-offs, same-title books,
+    the author's other novels). Bigram containment survives partial titles better
+    than exact matching does for Japanese."""
+    core = title_core(title)
+    if len(core) < 2:
+        return True                      # nothing to match on — don't filter
+    if core in text:
+        return True
+    # NB: deliberately NOT accepting a bare author-name match. It let the author's
+    # *other* books through (a 岩田洋季 page about 灰色のアイリス passed while we were
+    # researching 手のひらの恋), which is the very failure this check exists to stop.
+    # Pages that describe a work without naming it are covered by the <title> that
+    # extract() prepends.
+    grams = {core[i:i + 2] for i in range(len(core) - 1)}
+    hit = sum(1 for g in grams if g in text)
+    return hit / len(grams) >= floor
 
 
 def gather(title: str, author: str, searxng: str, *,
@@ -159,6 +214,8 @@ def gather(title: str, author: str, searxng: str, *,
     used_domains: set[str] = set()
     used_queries: list[str] = []
     snippet_pool: list[tuple[str, str]] = []   # (url, snippet) — top-up fallback
+    dropped: list[tuple[str, str]] = []        # (url, text) — failed the relevance
+                                               # check; reinstated if we fall short
     total = 0
 
     # Reliable official synopsis first (楽天/OpenBD by ISBN), then SearXNG reviews.
@@ -170,6 +227,14 @@ def gather(title: str, author: str, searxng: str, *,
             total += len(syn)
             if verbose:
                 print(f"  [syn] ISBN {isbn} ({len(syn)}c)", file=sys.stderr)
+        mirror = fetch_bookmeter_mirror(isbn)
+        if mirror:
+            reviews.append(f"[読書メーター] {mirror}")
+            sources.append(f"kinokuniya(読書メーター):ISBN {isbn}")
+            used_domains.add("www.kinokuniya.co.jp")
+            total += len(mirror)
+            if verbose:
+                print(f"  [bm ] 読書メーター転載 ({len(mirror)}c)", file=sys.stderr)
 
     for q in _queries(title, author)[:max_queries]:
         used_queries.append(q)
@@ -186,6 +251,11 @@ def gather(title: str, author: str, searxng: str, *,
             if verbose:
                 print(f"  [{'ok ' if txt else 'skip'}] {url[:70]}", file=sys.stderr)
             if not txt:
+                continue
+            if not looks_relevant(txt, title, author):
+                dropped.append((url, txt))
+                if verbose:
+                    print(f"  [drop] 別作品らしい: {url[:62]}", file=sys.stderr)
                 continue
             used_domains.add(dom)
             reviews.append(txt)
@@ -210,6 +280,17 @@ def gather(title: str, author: str, searxng: str, *,
             total += len(snippet)
             if verbose:
                 print(f"  [snip] {url[:70]}", file=sys.stderr)
+
+    # The relevance check is advisory, never fatal: a page can describe a work
+    # without naming it or its author. If we are still thin, put the rejects back
+    # with a label so the reader discounts them rather than losing them.
+    if total < threshold and dropped:
+        for url, txt in dropped:
+            reviews.append(f"[関連性低] {txt}")
+            sources.append(url + " (low-relevance)")
+            total += len(txt)
+            if verbose:
+                print(f"  [back] 復活: {url[:62]}", file=sys.stderr)
             if total >= threshold:
                 break
 
